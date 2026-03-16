@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelaniya Dengue Forecast · LSTM + XGBoost</title>
+    <!-- Bootstrap + Font Awesome -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow-x: hidden;
+        }
+
+        /* ----- animations ----- */
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up {
+            animation: fadeUp 0.8s ease forwards;
+        }
+        .fade-up-delay {
+            animation: fadeUp 0.8s ease 0.2s forwards;
+            opacity: 0;
+        }
+        .hover-scale {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .hover-scale:hover {
+            transform: scale(1.02);
+            box-shadow: 0 20px 30px rgba(0,47,75,0.15);
+        }
+        /* scroll reveal helper (will be applied via js) */
+        .reveal {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.8s ease, transform 0.8s ease;
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        /* pulse for icons */
+        @keyframes softPulse {
+            0% { filter: drop-shadow(0 0 0 #ffc107); }
+            50% { filter: drop-shadow(0 0 8px #ffc107); }
+            100% { filter: drop-shadow(0 0 0 #ffc107); }
+        }
+        .icon-pulse {
+            animation: softPulse 2s infinite;
+        }
+
+        /* navbar */
+        #nav-bar {
+            background-color: #0a2f44;
+            padding: 0 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .navbar-brand img {
+            height: 45px;
+            filter: brightness(0) invert(1);
+        }
+        .navbar-nav .nav-link {
+            color: #fff !important;
+            font-weight: 500;
+            margin: 0 10px;
+            transition: 0.3s;
+        }
+        .navbar-nav .nav-link:hover {
+            color: #ffc107 !important;
+        }
+
+        /* banner */
+        #banner {
+            background: linear-gradient(135deg, #0a2f44 0%, #1b5a7a 100%);
+            color: #fff;
+            padding: 60px 0 30px;
+        }
+        .promo-title {
+            font-size: 2.8rem;
+            font-weight: 700;
+            margin-top: 30px;
+            line-height: 1.2;
+        }
+        .btn-forecast {
+            background-color: #ffc107;
+            color: #0a2f44;
+            font-weight: 600;
+            padding: 12px 30px;
+            border-radius: 40px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: 0.3s;
+            display: inline-block;
+        }
+        .btn-forecast:hover {
+            background-color: #ffdb6e;
+            transform: translateY(-3px);
+            text-decoration: none;
+            color: #0a2f44;
+        }
+
+        /* titles */
+        .title {
+            font-weight: 700;
+            color: #0a2f44;
+            margin-bottom: 50px;
+            position: relative;
+            display: inline-block;
+            padding-bottom: 10px;
+        }
+        .title:after {
+            content: '';
+            background: #ffc107;
+            width: 80px;
+            height: 4px;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 2px;
+        }
+
+        /* cards */
+        .card-project {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+            transition: 0.3s;
+            height: 100%;
+            padding: 25px;
+            background: white;
+        }
+        .card-project:hover {
+            box-shadow: 0 15px 30px rgba(0,47,75,0.1);
+        }
+        .icon-circle {
+            width: 70px;
+            height: 70px;
+            background: #e7f0f7;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            color: #1b5a7a;
+            font-size: 28px;
+        }
+
+        /* team card */
+        .team-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.03);
+            border: 1px solid #edf2f7;
+            transition: 0.2s;
+            text-align: center;
+        }
+        .team-card:hover {
+            transform: translateY(-6px);
+            border-color: #ffc107;
+        }
+
+        /* step boxes */
+        .step-box {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+            border: 1px solid #e9ecf0;
+            margin-bottom: 20px;
+            transition: 0.3s;
+        }
+        .step-box:hover {
+            border-color: #ffc107;
+        }
+
+        /* footer */
+        #footer {
+            background-color: #0a2f44;
+            color: #ccddee;
+            padding-top: 40px;
+        }
+        .footer-box img {
+            max-height: 50px;
+            margin-bottom: 15px;
+            background: white;
+            border-radius: 8px;
+            padding: 5px;
+        }
+        .copyright {
+            background: #052433;
+            color: #99b8d4;
+            padding: 15px 0;
+            text-align: center;
+        }
+
+        /* new image containers */
+        .img-illustration {
+            border-radius: 20px;
+            max-width: 100%;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            border: 2px solid white;
+            transition: 0.4s;
+        }
+        .img-illustration:hover {
+            transform: scale(1.02);
+            box-shadow: 0 20px 35px rgba(0,0,0,0.15);
+        }
+
+        .bg-soft-warning {
+            background: #fff8e7;
+        }
+    </style>
+</head>
+<body>
+
+<!----- NAVBAR ----->
+<section id="nav-bar">
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <a class="navbar-brand" href="#"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 40'%3E%3Ctext x='10' y='28' font-family='Arial' font-size='22' fill='%23ffffff' font-weight='bold'%3EKELANIYA%3C/text%3E%3Ctext x='10' y='38' font-family='Arial' font-size='12' fill='%23ffc107'%3EDengue Forecast%3C/text%3E%3C/svg%3E" alt="logo"></a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+            <i class="fa fa-bars" style="color:#fff;"></i>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item"><a class="nav-link" href="#banner">HOME</a></li>
+                <li class="nav-item"><a class="nav-link" href="#introduction">INTRO</a></li>
+                <li class="nav-item"><a class="nav-link" href="#objectives">OBJECTIVES</a></li>
+                <li class="nav-item"><a class="nav-link" href="#research-questions">RESEARCH</a></li>
+                <li class="nav-item"><a class="nav-link" href="#literature">LITERATURE</a></li>
+                <li class="nav-item"><a class="nav-link" href="#methodology">METHODOLOGY</a></li>
+                <li class="nav-item"><a class="nav-link" href="#team">TEAM</a></li>
+                <li class="nav-item"><a class="nav-link" href="#footer">CONTACT</a></li>
+            </ul>
+        </div>
+    </nav>
+</section>
+
+<!----- BANNER (with animation) ----->
+<section id="banner">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6 fade-up">
+                <p class="promo-title">Real‑Time RNN<br>Dengue Forecasting</p>
+                <p class="promo-sub">Kelaniya Divisional Secretariat · GN‑level weekly risk</p>
+                <p class="mb-4">Integrating climate, population & flood data using LSTM + XGBoost. Fine‑grained predictions for proactive public health.</p>
+                <a href="#methodology" class="btn-forecast"><i class="fa fa-area-chart mr-2"></i> Explore model</a>
+                <a href="#footer" class="btn btn-outline-light ml-3 px-4 py-2 rounded-pill">Contact team</a>
+            </div>
+            <div class="col-md-6 text-center fade-up-delay">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='320' viewBox='0 0 500 320'%3E%3Crect width='500' height='320' fill='%231b5a7a' rx='20'/%3E%3Ccircle cx='250' cy='120' r='70' fill='%23ffc107' opacity='0.3'/%3E%3Cpath d='M150 200 L250 80 L350 200 Z' fill='%23ffffff' opacity='0.15'/%3E%3Ctext x='150' y='250' fill='%23ffffff' font-size='24' font-weight='bold'%3ELSTM%3C/text%3E%3Ctext x='270' y='190' fill='%23ffffff' font-size='24'%3E+XGBoost%3C/text%3E%3C/svg%3E" alt="forecast illustration" class="img-fluid banner-img" style="border-radius:20px;">
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- INTRODUCTION (reveal on scroll) ----->
+<section id="introduction" class="py-5 bg-light-custom" style="background-color:#f8fbfe;">
+    <div class="container reveal">
+        <h1 class="title text-center">INTRODUCTION</h1>
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card-project p-4 hover-scale">
+                    <p class="lead" style="font-weight: 500;">Dengue is a major public health challenge in Sri Lanka. The Kelaniya MOH area is a high‑risk zone (Amarasinghe & Nadeeka, 2021).</p>
+                    <p>Existing models provide district/MOH‑level predictions, lacking the <strong>GN‑level granularity</strong> needed for targeted interventions. Moreover, they often ignore <strong>non‑climatic drivers</strong> like population density and flood occurrence.</p>
+                    <p class="mb-0">Our research fills this gap by developing a <strong>real‑time, fine‑grained dengue forecasting system</strong> at GN level, integrating weekly climate data, population, and flood occurrence (from our XGBoost flood model) to forecast dengue risk every week for all Grama Niladari divisions in Kelaniya Divisional Secretariat.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- NEW IMAGE 1: Map of Kelaniya GN divisions (added) ----->
+<section class="py-3">
+    <div class="container reveal">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <div class="p-3 bg-soft-warning rounded-lg">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='650' height='240' viewBox='0 0 650 240'%3E%3Crect width='650' height='240' fill='%23d4e6f1' rx='20'/%3E%3Ctext x='40' y='50' fill='%230a2f44' font-size='22' font-weight='bold'%3E Kelaniya GN divisions (34 Grama Niladari) %3C/text%3E%3Ccircle cx='180' cy='130' r='18' fill='%23ffc107' stroke='%230a2f44' stroke-width='2' /%3E%3Ccircle cx='280' cy='90' r='12' fill='%23ffc107' stroke='%230a2f44' stroke-width='2' /%3E%3Ccircle cx='380' cy='160' r='20' fill='%23ffc107' stroke='%230a2f44' stroke-width='2' /%3E%3Ccircle cx='480' cy='110' r='15' fill='%23ffc107' stroke='%230a2f44' stroke-width='2' /%3E%3Ccircle cx='550' cy='180' r='10' fill='%23ffc107' stroke='%230a2f44' stroke-width='2' /%3E%3Cpath d='M50 200 L600 200' stroke='%230a2f44' stroke-width='3' stroke-dasharray='5 5' /%3E%3Ctext x='60' y='220' fill='%230a2f44' font-size='16'%3E Kelani River %3C/text%3E%3C/svg%3E" alt="Kelaniya GN map" class="img-illustration">
+                    <p class="mt-2 text-muted"><i class="fa fa-map-marker"></i> 34 Grama Niladari divisions – each with weekly dengue risk forecast</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- OBJECTIVES (cards with hover animation) ----->
+<section id="objectives" class="py-5">
+    <div class="container">
+        <h1 class="title text-center reveal">OBJECTIVES</h1>
+        <div class="row">
+            <div class="col-md-6 mb-4 reveal">
+                <div class="card-project hover-scale">
+                    <div class="icon-circle icon-pulse"><i class="fa fa-bullseye"></i></div>
+                    <h4>Main objective</h4>
+                    <p>Develop a weekly dengue forecasting system for each GN division in Kelaniya using LSTM that integrates historical & real‑time climate, population, and flood data.</p>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4 reveal">
+                <div class="card-project hover-scale">
+                    <div class="icon-circle icon-pulse"><i class="fa fa-list-ul"></i></div>
+                    <h4>Specific objectives</h4>
+                    <ul class="pl-3">
+                        <li>Identify key climate factors influencing dengue at GN level</li>
+                        <li>Determine relationship between climate, population, flood & dengue</li>
+                        <li>Build XGBoost flood prediction model (input for dengue system)</li>
+                        <li>Develop LSTM model for weekly dengue cases per GN</li>
+                        <li>Integrate real‑time data streams</li>
+                        <li>Design interactive dashboard for health officials</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- RESEARCH QUESTIONS (cards staggered) ----->
+<section id="research-questions" class="py-5 bg-light-custom">
+    <div class="container">
+        <h1 class="title text-center reveal">RESEARCH QUESTIONS</h1>
+        <div class="row">
+            <div class="col-md-6 col-lg-4 mb-4 reveal">
+                <div class="step-box h-100 hover-scale">
+                    <i class="fa fa-cloud fa-2x mb-3" style="color:#1b5a7a;"></i>
+                    <p><strong>Climate influencers?</strong> What climate factors most strongly influence dengue incidence at GN level?</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4 reveal">
+                <div class="step-box h-100 hover-scale">
+                    <i class="fa fa-flask fa-2x mb-3" style="color:#1b5a7a;"></i>
+                    <p><strong>Relationship?</strong> How do historical climate, population & flood relate to dengue at GN level?</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4 reveal">
+                <div class="step-box h-100 hover-scale">
+                    <i class="fa fa-tint fa-2x mb-3" style="color:#1b5a7a;"></i>
+                    <p><strong>Flood prediction?</strong> How effectively can XGBoost predict weekly flood occurrence using hydro‑meteorological data?</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4 reveal">
+                <div class="step-box h-100 hover-scale">
+                    <i class="fa fa-line-chart fa-2x mb-3" style="color:#1b5a7a;"></i>
+                    <p><strong>LSTM forecast?</strong> How can an LSTM model accurately forecast weekly dengue cases using input data?</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4 reveal">
+                <div class="step-box h-100 hover-scale">
+                    <i class="fa fa-clock-o fa-2x mb-3" style="color:#1b5a7a;"></i>
+                    <p><strong>Real‑time impact?</strong> How does integrating real‑time climate data affect accuracy & timeliness?</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4 mb-4 reveal">
+                <div class="step-box h-100 hover-scale">
+                    <i class="fa fa-dashboard fa-2x mb-3" style="color:#1b5a7a;"></i>
+                    <p><strong>Dashboard?</strong> How to design an interactive dashboard that communicates risk & supports decisions?</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- NEW IMAGE 2: LSTM vs XGBoost schematic (added) ----->
+<section class="py-3">
+    <div class="container reveal">
+        <div class="row justify-content-center">
+            <div class="col-md-10 text-center">
+                <div class="p-3 bg-white rounded-lg shadow-sm">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='200' viewBox='0 0 720 200'%3E%3Crect width='720' height='200' fill='%23eef3f7' rx='20'/%3E%3Ctext x='60' y='50' fill='%230a2f44' font-size='18' font-weight='bold'%3ERaw data%3C/text%3E%3Ctext x='60' y='80' fill='%23333' font-size='14'%3E(rainfall, humidity, population)%3C/text%3E%3Crect x='200' y='35' width='130' height='60' fill='%231b5a7a' rx='15' /%3E%3Ctext x='225' y='70' fill='%23fff' font-size='20'%3EXGBoost%3C/text%3E%3Ctext x='215' y='100' fill='%230a2f44' font-size='13'%3E(flood occ/duration)%3C/text%3E%3Crect x='390' y='35' width='130' height='60' fill='%23ffc107' rx='15' /%3E%3Ctext x='420' y='70' fill='%230a2f44' font-size='20'%3ELSTM%3C/text%3E%3Ctext x='400' y='100' fill='%230a2f44' font-size='13'%3E(dengue risk)%3C/text%3E%3Ctext x='580' y='70' fill='%230a2f44' font-size='18'%3EGN‑level%3C/text%3E%3Ctext x='590' y='95' fill='%230a2f44' font-size='16'%3Eweekly%3C/text%3E%3Cpath d='M130 70 L190 70' stroke='%23000' stroke-width='2' /%3E%3Cpath d='M330 70 L380 70' stroke='%23000' stroke-width='2' /%3E%3Cpath d='M520 70 L570 70' stroke='%23000' stroke-width='2' /%3E%3C/svg%3E" alt="model pipeline" class="img-illustration">
+                    <p class="mt-2"><i class="fa fa-cogs"></i> Flood output from XGBoost becomes a key input to LSTM dengue model</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- LITERATURE (brief) ----->
+<section id="literature" class="py-5">
+    <div class="container">
+        <h1 class="title text-center reveal">LITERATURE HIGHLIGHTS</h1>
+        <div class="row">
+            <div class="col-md-6 reveal">
+                <h5><i class="fa fa-tint mr-2"></i> Flood gaps</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2">🔹 Chathurangi et al. (2019): ANN, basin scale, not GN</li>
+                    <li class="mb-2">🔹 Saubhagya et al. (2025): Bi-LSTM, low spatial resolution</li>
+                    <li class="mb-2">🔹 Sudeshika (2021): no ML</li>
+                </ul>
+            </div>
+            <div class="col-md-6 reveal">
+                <h5><i class="fa fa-bug mr-2"></i> Dengue gaps</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-2">🔹 Gnanapragasam (2015): ARIMA, no climate</li>
+                    <li class="mb-2">🔹 Ye (2025): RF, static remote sensing</li>
+                    <li class="mb-2">🔹 Uduwanage (2025): national level, no real‑time</li>
+                </ul>
+            </div>
+        </div>
+        <div class="text-center mt-4 reveal">
+            <span class="badge badge-warning p-3" style="background:#ffc107; font-size:1rem;">Our work: GN‑level real‑time LSTM + XGBoost</span>
+        </div>
+    </div>
+</section>
+
+<!----- METHODOLOGY ----->
+<section id="methodology" class="py-5 bg-light-custom">
+    <div class="container">
+        <h1 class="title text-center reveal">METHODOLOGY</h1>
+        <div class="row">
+            <div class="col-lg-6 reveal">
+                <div class="step-box hover-scale">
+                    <h4><span class="badge badge-dark mr-2">1</span> Flood (XGBoost)</h4>
+                    <p><strong>Inputs:</strong> rainfall, soil moisture, slope, water level, historical floods 2015–25.<br>
+                    <strong>Output:</strong> weekly flood occurrence & duration → dengue DB.</p>
+                </div>
+            </div>
+            <div class="col-lg-6 reveal">
+                <div class="step-box hover-scale">
+                    <h4><span class="badge badge-dark mr-2">2</span> Dengue (LSTM)</h4>
+                    <p><strong>Inputs:</strong> weekly cases, climate, population, flood, 4‑week lags.<br>
+                    <strong>Output:</strong> GN‑level dengue risk (weekly).</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- TEAM ----->
+<section id="team" class="py-5">
+    <div class="container">
+        <h1 class="title text-center reveal">TEAM</h1>
+        <div class="row">
+            <div class="col-md-3 col-6 mb-4 reveal">
+                <div class="team-card hover-scale">
+                    <i class="fa fa-user-circle fa-4x mb-3" style="color:#0a2f44;"></i>
+                    <h5>Mr. Chamila Karunathilake</h5>
+                    <p>Supervisor</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4 reveal">
+                <div class="team-card hover-scale">
+                    <i class="fa fa-user-circle-o fa-4x mb-3" style="color:#0a2f44;"></i>
+                    <h5>H.H.Witharana</h5>
+                    <p>ICT/21/948</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4 reveal">
+                <div class="team-card hover-scale">
+                    <i class="fa fa-user-circle-o fa-4x mb-3" style="color:#0a2f44;"></i>
+                    <h5>B.L.Sandaruwan</h5>
+                    <p>ICT/20/925</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-4 reveal">
+                <div class="team-card hover-scale">
+                    <i class="fa fa-user-circle-o fa-4x mb-3" style="color:#0a2f44;"></i>
+                    <h5>P.S.D. Senadheera</h5>
+                    <p>ICT/21/918</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!----- TECHNOLOGIES (with pulse) ----->
+<section id="technologies" class="py-5 bg-light-custom">
+    <div class="container reveal">
+        <h1 class="title text-center">TECH STACK</h1>
+        <div class="row text-center">
+            <div class="col-md-3 col-6 mb-3"><i class="fa fa-google fa-2x icon-pulse"></i> <strong>Earth Engine</strong></div>
+            <div class="col-md-3 col-6 mb-3"><i class="fa fa-code fa-2x icon-pulse"></i> <strong>Colab</strong></div>
+            <div class="col-md-3 col-6 mb-3"><i class="fa fa-server fa-2x icon-pulse"></i> <strong>FastAPI</strong></div>
+            <div class="col-md-3 col-6 mb-3"><i class="fa fa-database fa-2x icon-pulse"></i> <strong>PostgreSQL</strong></div>
+            <div class="col-md-3 col-6 mb-3"><i class="fa fa-html5 fa-2x icon-pulse"></i> <strong>React+Tailwind</strong></div>
+            <div class="col-md-3 col-6 mb-3"><i class="fa fa-docker fa-2x icon-pulse"></i> <strong>Docker</strong></div>
+        </div>
+    </div>
+</section>
+
+<!----- FOOTER + CONTACT ----->
+<section id="footer">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-4 footer-box">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='50'%3E%3Crect width='120' height='50' fill='%23ffffff' rx='5'/%3E%3Ctext x='10' y='32' fill='%230a2f44' font-weight='bold'%3EKELANIYA%3C/text%3E%3C/svg%3E" alt="logo">
+                <p><i class="fa fa-map-marker"></i> Faculty of Technology, USJ</p>
+                <p><i class="fa fa-envelope"></i> ict21948@fot.sjp.ac.lk</p>
+            </div>
+            <div class="col-md-4 footer-box">
+                <p><b>Supervisor</b><br>Mr. Chamila Karunathilake<br>chamila@sjp.ac.lk</p>
+            </div>
+            <div class="col-md-4 footer-box">
+                <p><b>Team</b><br>H.H.Witharana · B.L.Sandaruwan · P.S.D. Senadheera</p>
+                <p><i class="fa fa-phone"></i> 0768733001</p>
+            </div>
+        </div>
+        <hr>
+        <p class="copyright">© 2025 Kelaniya Dengue Forecast · animated edition</p>
+    </div>
+</section>
+
+<!----- Scroll reveal script & smooth scroll ----->
+<script>
+    // smooth scroll for anchor
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth' });
+        });
+    });
+
+    // reveal on scroll
+    function reveal() {
+        const reveals = document.querySelectorAll('.reveal');
+        for (let i = 0; i < reveals.length; i++) {
+            const windowHeight = window.innerHeight;
+            const elementTop = reveals[i].getBoundingClientRect().top;
+            const elementVisible = 100;
+            if (elementTop < windowHeight - elementVisible) {
+                reveals[i].classList.add('active');
+            } else {
+                reveals[i].classList.remove('active');
+            }
+        }
+    }
+    window.addEventListener('scroll', reveal);
+    window.addEventListener('load', reveal);
+</script>
+
+<!-- Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+</body>
+</html>
